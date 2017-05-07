@@ -16,7 +16,7 @@ TEST_CASE( "a100 100a => [a100, _, 100, a]" ) {
         { "id",     "a" }
     };
     
-    gel::lexer lexer{
+    lexer lexer{
         { "id",     "[a-zA-Z_][a-zA-Z_0-9]*" },
         { "number", "[0-9]+" },
         { "space",  "[ ]+" }
@@ -34,6 +34,18 @@ TEST_CASE( "a100 100a => [a100, _, 100, a]" ) {
         REQUIRE_EQ( token.text, RESULT[i].second );
         ++i;
     }
+}
+
+TEST_CASE( "Unknown error." ) {
+    // Setup.
+    lexer lexer{
+        { "id",     "[a-zA-Z_][a-zA-Z_0-9]*" },
+        { "number", "[0-9]+" },
+        { "space",  "[ ]+" }
+    };
+    
+    // Check.
+    CHECK_THROWS_AS( lexer.run("a100."), unknown_char_error );
 }
  
 TEST_SUITE_END();
