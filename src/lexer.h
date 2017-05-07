@@ -7,11 +7,12 @@
 #define GEL_LEXER_H
 
 #include <string>
-#include <map>
 #include <regex>
+#include <vector>
 #include <utility>
 #include <initializer_list>
-#include "dom.h"
+#include <functional>
+#include <list>
 #include "error.h"
 
 namespace gel{
@@ -24,46 +25,58 @@ public:
 
 class lexer{
 public:
+    using action = std::function<void(const std::cmatch&)>;
+
     // Constructor.
-    lexer( std::initializer_list<std::pair<str, str>> rules){
+    lexer( std::initializer_list<std::pair<str, action>> rules){
         // Convert string pairs to pairs of strings and regular expressions.
         // Regular expressions are converted to forward-match regular expressions.
         for(auto& rule : rules){
-            std::regex regex{ str("^(") + rule.second + ")" };
-            regex_table_.insert({ rule.first, regex });
+            std::regex regex{ str("^(") + rule.first + ")" };
+            rules_.push_back({ regex, rule.second });
         }
     }
     
-    dom run(const str& source){
+    void run(const str& source){
         cur_ = source.c_str();
+        exit_flag = false;
         
-        dom tokens{"tokens"};
-        
-        while( *cur_ != '\0' ){
-            tokens.childs.push_back( scan_token_() );
+        while( *cur_ != '\0' && !exit_flag ){
+            scan_token_();
         }
-        
-        return tokens;
+    }
+    
+    void exit(){
+        exit_flag = true;
     }
     
 private:
     // Member variables.
-    std::map<str, std::regex> regex_table_;
-    const char*               cur_; // A variable that keep the reading position.
+    std::vector<std::pair<std::regex, action>> rules_;
+    const char*                                cur_; // A variable that keep the reading position.
+    bool                                       exit_flag = false;
     
     // Scan a token.
-    dom scan_token_(){
+    void scan_token_(){
         std::cmatch match;
+        bool matched = false;
         
         // Test whether each regular expression matches.
-        for(auto& rule : regex_table_){
-            if( std::regex_search(cur_, match, rule.second) ){
+        for(auto& rule : rules_){
+            if( std::regex_search(cur_, match, rule.first) ){
+                matched = true;
+                
+                // Advance reading position.
                 cur_ = match[0].second;
-                return dom{ rule.first, {}, match[0].str() };    
+                
+                // Run action.
+                rule.second( match );
             }
         }
         
-        throw unknown_char_error( *cur_ );
+        if( !matched ){
+            throw unknown_char_error( *cur_ );
+        }
     }
 };
 
